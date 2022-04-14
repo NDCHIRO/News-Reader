@@ -3,13 +3,13 @@ package com.example.newsreader;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
-import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.Toast;
 
@@ -28,42 +28,58 @@ public class MainActivity extends AppCompatActivity {
     ArrayList<String> best6TopicsTitles;
     //static to call it in another activity
     static ArrayList<String> best6TopicsURLs;
-    ListAdapter adapter;
+    ArrayAdapter adapter;
     ListView listView;
+    SharedPreferences sharedPreferences;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        //shared preferences to save the websites
+        sharedPreferences = this.getSharedPreferences("com.example.newsreader",MODE_PRIVATE);
         //definitions
-        listView= findViewById(R.id.listView);
+        listView = findViewById(R.id.listView);
         best6TopicsIds = new ArrayList<String>();
         best6TopicsTitles = new ArrayList<String>();
         best6TopicsURLs= new ArrayList<String>();
-        adapter = new ArrayAdapter<String>(this, R.layout.support_simple_spinner_dropdown_item,
-                best6TopicsTitles);
-        listView.setAdapter(adapter);
 
-        //execute the url to then get and save the first best 6 topics id in best6TopicsIds
-        executeURL("https://hacker-news.firebaseio.com/v0/topstories.json?print=pretty",true);
+        //extract the data from sharedprefences if it exits
+        try {
+            //best6TopicsIds = (ArrayList<String>)ObjectSerializer.deserialize(sharedPreferences.getString("ids",ObjectSerializer.serialize(new ArrayList<String>())));
+            best6TopicsTitles = (ArrayList<String>)ObjectSerializer.deserialize(sharedPreferences.getString("titles",ObjectSerializer.serialize(new ArrayList<String>())));
+            best6TopicsURLs = (ArrayList<String>)ObjectSerializer.deserialize(sharedPreferences.getString("urls",ObjectSerializer.serialize(new ArrayList<String>())));
+            //adapter.notifyDataSetChanged();
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+        //if the titles array is empty,that means there are no data saved so start execute the given url
+        if(best6TopicsTitles.size() < 1) {
+            //execute the url to then get and save the first best 6 topics id in best6TopicsIds
+            executeURL("https://hacker-news.firebaseio.com/v0/topstories.json?print=pretty", true);
 
-        for(int i=0;i<webText.length;i++)
-            webText[i]=webText[i].replace(",", "");
+            for (int i = 0; i < webText.length; i++)
+                webText[i] = webText[i].replace(",", "");
 
-        for(int i=1;i<7;i++) {
-            if (!webText[i].equals("")) {
-                best6TopicsIds.add(webText[i]);
-                //get the title and url of the topic
-                getTitlesAndUrlsFromIds(best6TopicsIds.get(i-1));
+            for (int i = 1; i < 7; i++) {
+                if (!webText[i].equals("")) {
+                    best6TopicsIds.add(webText[i]);
+                    //get the title and url of the topic
+                    getTitlesAndUrlsFromIds(best6TopicsIds.get(i - 1));
+                }
             }
         }
 
+        adapter = new ArrayAdapter(getApplicationContext(), android.R.layout.simple_list_item_1, best6TopicsTitles);
+        listView.setAdapter(adapter);
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-                Intent intent = new Intent(MainActivity.this,NewsActivity.class);
+                Intent intent = new Intent(MainActivity.this, NewsActivity.class);
                 // send the index of the clicked item
-                intent.putExtra("names",i);
+                intent.putExtra("names", i);
                 startActivity(intent);
             }
         });
@@ -89,7 +105,9 @@ public class MainActivity extends AppCompatActivity {
                 best6TopicsURLs.add(url);
             else
                 Toast.makeText(getApplicationContext(),"could not find the url :(",Toast.LENGTH_SHORT).show();
-
+            //save the title and the url of each website
+            sharedPreferences.edit().putString("titles",ObjectSerializer.serialize(best6TopicsTitles)).apply();
+            sharedPreferences.edit().putString("urls",ObjectSerializer.serialize(best6TopicsURLs)).apply();
         }
         catch (Exception e)
         {
